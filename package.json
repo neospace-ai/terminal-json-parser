@@ -57,7 +57,7 @@
         },
         "terminalSelectionViewer.chatGPTModel": {
           "type": "string",
-          "default": "gpt-3.5-turbo",
+          "default": "gpt-4o-mini",
           "description": "The ChatGPT model to use."
         },
         "terminalSelectionViewer.fontSize": {
