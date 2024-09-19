@@ -116,5 +116,6 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "repository": "https://github.com/neospace-ai/terminal-json-parser"
 }
