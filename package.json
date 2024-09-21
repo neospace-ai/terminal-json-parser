@@ -1,8 +1,10 @@
 {
   "name": "terminal-json-parser",
-  "displayName": "terminal-json-parser",
+  "displayName": "Terminal JSON Parser",
   "description": "Parse selected text as JSON in a new tab",
   "version": "1.0.0",
+  "publisher": "neospace-ai",
+  "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -114,8 +116,14 @@
   "scripts": {
     "test": "mocha"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "repository": "https://github.com/neospace-ai/terminal-json-parser"
+  "keywords": [
+    "terminal",
+    "parser",
+    "ai",
+    "debug"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neospace-ai/terminal-json-parser"
+  }
 }
