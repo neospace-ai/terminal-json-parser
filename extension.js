@@ -73,8 +73,13 @@ function activate(context) {
               async () => {
                 const chatGPTResponse = await callChatGPT(chatGPTApiKey, chatGPTModel, selectedText, chatGPTPrompt);
                 messages.push(chatGPTResponse);
-                language = 'markdown'; // Adjust based on response format
                 done = true;
+                try{
+                  JSON.parse(chatGPTResponse);
+                  language = 'json';
+                } catch (e) {
+                  // Not valid JSON, keep the original GPT Response
+                }
               }
             );
           } catch (error) {
@@ -82,6 +87,8 @@ function activate(context) {
             messages.push("ChatGPT API error. Using normal formatting.");
             language = 'plaintext';
           }
+
+
         } else {
           vscode.window.showErrorMessage('ChatGPT API key is not set. Please provide it in the extension settings.');
           messages.push("ChatGPT API key is not set. Using normal formatting.");
@@ -138,7 +145,6 @@ function activate(context) {
   });
   context.subscriptions.push(disposable);
 }
-
 function getWebviewContent(webview, extensionUri, content, language, fontSize) {
   // Get the URI for the copy icon
   const copyIconUri = webview.asWebviewUri(
@@ -151,7 +157,9 @@ function getWebviewContent(webview, extensionUri, content, language, fontSize) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 
-  // Include Highlight.js for syntax highlighting
+  // Create a nonce to allow only specific scripts to run
+  const nonce = getNonce();
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -159,50 +167,48 @@ function getWebviewContent(webview, extensionUri, content, language, fontSize) {
     <title>Terminal Selection</title>
     <style>
         body {
-            font-family: monospace;
-            margin: 0;
-            padding: 0;
-            background-color: transparent;
-            color: #d4d4d4;
+            font-family: var(--vscode-editor-font-family, monospace);
+            margin: ;
+            padding: 5;
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-editor-foreground);
             font-size: ${fontSize}px;
             position: relative;
         }
         pre, code {
             background-color: transparent; 
         }
-        .hljs {
-            background-color: transparent;
+        code {
+            font-family: var(--vscode-editor-font-family, monospace);
         }
         #copyButtonContainer {
             position: absolute;
             top: 5px;
             right: 10px;
-            border: 1px solid #555;
+            border: 1px solid var(--vscode-editorWidget-border);
             border-radius: 5px;
             padding: 5px;
             cursor: pointer;
             transition: background-color 0.2s;
         }
         #copyButtonContainer:hover {
-            background-color: rgba(255, 255, 255, 0.1); /* Slightly darker on hover */
+            background-color: var(--vscode-toolbar-hoverBackground);
         }
         #copyButtonContainer img {
             width: 24px;
             height: 24px;
+            filter: var(--vscode-icon-foreground); /* Adjust icon color based on theme */
         }
-        /* Highlight.js styles */
-        ${getHighlightStyles()}
+        /* Syntax highlighting styles */
+        ${getSyntaxHighlightingStyles()}
     </style>
 </head>
 <body>
     <div id="copyButtonContainer">
         <img id="copyButton" src="${copyIconUri}" alt="Copy" />
     </div>
-    <pre><code class="${language}">${escapedContent}</code></pre>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
-    <script>
-        hljs.highlightAll();
-
+    <pre><code>${escapedContent}</code></pre>
+    <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
 
         document.getElementById('copyButtonContainer').addEventListener('click', () => {
@@ -211,22 +217,70 @@ function getWebviewContent(webview, extensionUri, content, language, fontSize) {
                 text: ${JSON.stringify(content)}
             });
         });
+
+        // Syntax highlighting function
+        (function() {
+            const codeBlocks = document.querySelectorAll('code');
+            codeBlocks.forEach(block => {
+                const code = block.innerHTML;
+                if ('${language}' === 'json') {
+                    block.innerHTML = syntaxHighlightJSON(code);
+                }
+            });
+        })();
+
+        function syntaxHighlightJSON(json) {
+            json = json.replace(/&quot;/g, '"');
+            return json.replace(/("(?:\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(?:\\s*:)?|\\b(?:true|false|null)\\b|-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)/g, function (match) {
+                let cls = 'number';
+                if (/^"/.test(match)) {
+                    if (/:$/.test(match)) {
+                        cls = 'key';
+                    } else {
+                        cls = 'string';
+                    }
+                } else if (/true|false/.test(match)) {
+                    cls = 'boolean';
+                } else if (/null/.test(match)) {
+                    cls = 'null';
+                }
+                return '<span class="' + cls + '">' + match + '</span>';
+            });
+        }
     </script>
 </body>
 </html>`;
 }
 
-
-function getHighlightStyles() {
-  // Optional: You can include a custom style or link to a CDN
+function getSyntaxHighlightingStyles() {
   return `
-        /* Example style for JSON */
-        .hljs-keyword { color: #569CD6; }
-        .hljs-string { color: #CE9178; }
-        .hljs-number { color: #B5CEA8; }
-        .hljs-attribute { color: #9CDCFE; }
-    `;
+    .key {
+      color: var(--vscode-editorSyntax-keywordForeground, #569CD6);
+    }
+    .string {
+      color: var(--vscode-editorSyntax-stringForeground, #CE9178);
+    }
+    .number {
+      color: var(--vscode-editorSyntax-numberForeground, #B5CEA8);
+    }
+    .boolean {
+      color: var(--vscode-editorSyntax-booleanForeground, #569CD6);
+    }
+    .null {
+      color: var(--vscode-editorSyntax-nullForeground, #569CD6);
+    }
+  `;
 }
+
+function getNonce() {
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
+}
+
 function callChatGPT(apiKey, model, userContent, prompt) {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify({
