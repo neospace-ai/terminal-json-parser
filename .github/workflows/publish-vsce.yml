@@ -13,4 +13,4 @@ jobs:
         env:
           VSCE_TOKEN: ${{ secrets.VS_PUBLISH_TOKEN }}
         with:
-          args: "publish -p $VSCE_TOKEN"
+          args: "publish major -p $VSCE_TOKEN"
