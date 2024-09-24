@@ -29,7 +29,7 @@ Parse selected text from the terminal as JSON and display it in a new window wit
 
 2. **Activate the Extension**:
    - **Keyboard Shortcut**: Press `Ctrl+Shift+J` (`Cmd+Shift+J` on macOS).
-   - **Context Menu**: Right-click the selected text and choose **See in Window**.
+   - **Context Menu**: Right-click the selected text and choose **Parse Terminal Selection**.
    - **Command Palette**: Open the command palette and run **Terminal: Parse Terminal Selection**.
 
 3. **View Parsed Output**:

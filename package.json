@@ -2,7 +2,7 @@
   "name": "terminal-json-parser",
   "displayName": "Terminal JSON Parser",
   "description": "Parse selected text as JSON in a new tab",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publisher": "neospace-ai",
   "icon": "images/icon.png",
   "engines": {
@@ -27,7 +27,7 @@
       "terminal/context": [
         {
           "command": "extension.parseTerminalSelection",
-          "title": "See in Window"
+          "title": "Parse Terminal Selection"
         }
       ]
     },

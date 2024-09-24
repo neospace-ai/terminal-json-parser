@@ -33,20 +33,20 @@ function activate(context) {
       // Save the current clipboard content
       const previousClipboard = await vscode.env.clipboard.readText();
 
-      // Restore the original clipboard content
+      // Clear the clipboard
       await vscode.env.clipboard.writeText("");
 
       // Copy the terminal selection to the clipboard
       await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
       // Read the copied text from the clipboard
-      
+
       const selectedText = await vscode.env.clipboard.readText();
 
       if(selectedText == ""){
         await vscode.env.clipboard.writeText(previousClipboard);
         return;
       }
-      
+
       // Initialize variables
       let messages = [];
       let language = 'plaintext';
@@ -108,8 +108,25 @@ function activate(context) {
       );
 
       // Set the HTML content of the webview
-      panel.webview.html = getWebviewContent(formattedText, language, fontSize);
+      panel.webview.html = getWebviewContent(panel.webview, context.extensionUri, formattedText, language, fontSize);
 
+      // Add message handler to receive messages from the webview
+      panel.webview.onDidReceiveMessage(
+        async (message) => {
+          switch (message.command) {
+            case 'copy':
+              try {
+                await vscode.env.clipboard.writeText(message.text);
+                vscode.window.showInformationMessage('Content copied to clipboard.');
+              } catch (e) {
+                vscode.window.showErrorMessage('Failed to copy content to clipboard.');
+              }
+              break;
+          }
+        },
+        undefined,
+        context.subscriptions
+      );
 
       // Restore the original clipboard content
       await vscode.env.clipboard.writeText(previousClipboard);
@@ -122,7 +139,12 @@ function activate(context) {
   context.subscriptions.push(disposable);
 }
 
-function getWebviewContent(content, language, fontSize) {
+function getWebviewContent(webview, extensionUri, content, language, fontSize) {
+  // Get the URI for the copy icon
+  const copyIconUri = webview.asWebviewUri(
+    vscode.Uri.joinPath(extensionUri, 'images', 'copy_icon.png')
+  );
+
   // Escape HTML special characters
   const escapedContent = content
     .replace(/&/g, '&amp;')
@@ -139,10 +161,11 @@ function getWebviewContent(content, language, fontSize) {
         body {
             font-family: monospace;
             margin: 0;
-            padding: 10px;
+            padding: 0;
             background-color: transparent;
             color: #d4d4d4;
             font-size: ${fontSize}px;
+            position: relative;
         }
         pre, code {
             background-color: transparent; 
@@ -150,15 +173,44 @@ function getWebviewContent(content, language, fontSize) {
         .hljs {
             background-color: transparent;
         }
+        #copyButtonContainer {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            border: 1px solid #555;
+            border-radius: 5px;
+            padding: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #copyButtonContainer:hover {
+            background-color: rgba(255, 255, 255, 0.1); /* Slightly darker on hover */
+        }
+        #copyButtonContainer img {
+            width: 24px;
+            height: 24px;
+        }
         /* Highlight.js styles */
         ${getHighlightStyles()}
     </style>
 </head>
 <body>
+    <div id="copyButtonContainer">
+        <img id="copyButton" src="${copyIconUri}" alt="Copy" />
+    </div>
     <pre><code class="${language}">${escapedContent}</code></pre>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <script>
         hljs.highlightAll();
+
+        const vscode = acquireVsCodeApi();
+
+        document.getElementById('copyButtonContainer').addEventListener('click', () => {
+            vscode.postMessage({
+                command: 'copy',
+                text: ${JSON.stringify(content)}
+            });
+        });
     </script>
 </body>
 </html>`;
@@ -186,7 +238,7 @@ function callChatGPT(apiKey, model, userContent, prompt) {
 
     // Optional: Log the data being sent for debugging
     console.log("Data sent to OpenAI:", data);
-    
+
     const options = {
       hostname: 'api.openai.com',
       path: '/v1/chat/completions',
@@ -223,7 +275,7 @@ function callChatGPT(apiKey, model, userContent, prompt) {
           } catch (e) {
             errorDetail = responseData;
           }
-          
+
           reject(new Error(`ChatGPT API returned status code ${res.statusCode}: ${errorDetail}`));
         }
       });
