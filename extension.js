@@ -40,10 +40,13 @@ function activate(context) {
       await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
       // Read the copied text from the clipboard
 
-      const selectedText = await vscode.env.clipboard.readText();
+      const selectedText = (await vscode.env.clipboard.readText()).trim();
+
+      // Restore the original clipboard content
+      await vscode.env.clipboard.writeText(previousClipboard);
 
       if(selectedText == ""){
-        await vscode.env.clipboard.writeText(previousClipboard);
+        vscode.window.showErrorMessage("No text selected in the terminal.");
         return;
       }
 
@@ -72,13 +75,19 @@ function activate(context) {
               },
               async () => {
                 const chatGPTResponse = await callChatGPT(chatGPTApiKey, chatGPTModel, selectedText, chatGPTPrompt);
-                messages.push(chatGPTResponse);
-                done = true;
-                try{
-                  JSON.parse(chatGPTResponse);
-                  language = 'json';
-                } catch (e) {
-                  // Not valid JSON, keep the original GPT Response
+                if (formatJson) { 
+                  try {
+                    const jsonObject = JSON.parse(chatGPTResponse);
+                    messages.push(JSON.stringify(jsonObject, null, 4)); // Format JSON with 4 spaces
+                    language = 'json';
+                    done = true;
+                  } catch (e) {
+                    // Not valid JSON, keep the original text
+                  }
+                }
+                if (!done) {
+                  messages.push(chatGPTResponse);
+                  done = true;
                 }
               }
             );
@@ -135,16 +144,14 @@ function activate(context) {
         context.subscriptions
       );
 
-      // Restore the original clipboard content
-      await vscode.env.clipboard.writeText(previousClipboard);
 
     } catch (error) {
-      await vscode.env.clipboard.writeText(previousClipboard);
       vscode.window.showErrorMessage(`Error: ${error.message}`);
     }
   });
   context.subscriptions.push(disposable);
 }
+
 function getWebviewContent(webview, extensionUri, content, language, fontSize) {
   // Get the URI for the copy icon
   const copyIconUri = webview.asWebviewUri(
